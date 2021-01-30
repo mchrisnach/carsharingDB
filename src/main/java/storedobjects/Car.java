@@ -19,6 +19,43 @@ public class Car implements IStoreableObject{
     private ArrayList<Comment> comments;
     private double expenses;
     private double rating;
+    private int carID;
+    private int insurancePerMonthCharges;
+    private int maintenanceCharges;
+    private int carRatePerKm;
+    private int carRatePerHour;
+
+    public int getInsurancePerMonthCharges() {
+        return insurancePerMonthCharges;
+    }
+
+    public void setInsurancePerMonthCharges(int insurancePerMonthCharges) {
+        this.insurancePerMonthCharges = insurancePerMonthCharges;
+    }
+
+    public int getMaintenanceCharges() {
+        return maintenanceCharges;
+    }
+
+    public void setMaintenanceCharges(int maintenanceCharges) {
+        this.maintenanceCharges = maintenanceCharges;
+    }
+
+    public int getCarRatePerKm() {
+        return carRatePerKm;
+    }
+
+    public void setCarRatePerKm(int carRatePerKm) {
+        this.carRatePerKm = carRatePerKm;
+    }
+
+    public int getCarRatePerHour() {
+        return carRatePerHour;
+    }
+
+    public void setCarRatePerHour(int carRatePerHour) {
+        this.carRatePerHour = carRatePerHour;
+    }
 
     public double getExpenses() {
         return expenses;
@@ -118,7 +155,7 @@ public class Car implements IStoreableObject{
             objectID=pID;
     }
 
-    public Car(int seats, String objectID, String manufacturer, String carType, double fuelConsumption, double longitude, double latitude, String status, String fuelType, double expenses) {
+    public Car(int seats, String objectID, String manufacturer, String carType, double fuelConsumption, double longitude, double latitude, String status, String fuelType, double expenses, int carID, int insurancePerMonthCharges, int maintenanceCharges, int carRatePerKm, int carRatePerHour) {
         this.seats = seats;
         this.objectID = objectID;
         this.manufacturer = manufacturer;
@@ -129,7 +166,12 @@ public class Car implements IStoreableObject{
         this.status = status;
         this.fuelType = fuelType;
         this.expenses = expenses;
+        this.carID = carID;
         this.rating = -1.0;
+        this.insurancePerMonthCharges = insurancePerMonthCharges;
+        this.maintenanceCharges = maintenanceCharges;
+        this.carRatePerKm = carRatePerKm;
+        this.carRatePerHour = carRatePerHour;
     }
 
     @Override

@@ -3,7 +3,6 @@ package createObjects;
 import storedobjects.Car;
 import storedobjects.Comment;
 
-import java.awt.*;
 import java.util.Random;
 
 import java.util.ArrayList;
@@ -42,12 +41,18 @@ public class CarFactory {
             double lat = randDouble(48,50);
             double longi = randDouble(8,10);
             double expenses = randDouble(1,60);
+            int carID = randInt(1, 100);
             String manufacturer = getRandomBrand();
             String type = getRandomType();
             String status = getRandomStatus();
             String fuelType = getRandomFuel();
+            int insurancePerMonthCharges = randInt(1, 100);
+            int maintenanceCharges = randInt(1, 100);
+            int carRatePerKm = randInt(1, 100);
+            int carRatePerHour = randInt(1, 100);
+
             ArrayList commentList = generateComments();
-            Car newCar = new Car(seats,null,manufacturer,type,fuel,longi,lat,status,fuelType, expenses);
+            Car newCar = new Car(seats,null,manufacturer,type,fuel,longi,lat,status,fuelType, expenses, carID, insurancePerMonthCharges, maintenanceCharges, carRatePerKm, carRatePerHour);
             carL.add(newCar);
         }
         return carL;

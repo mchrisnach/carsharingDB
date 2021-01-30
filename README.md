@@ -10,6 +10,7 @@ Login with username "neo4j", password "neo4j"
 change password to "WJ7cbBLbwvuDaFF"
 Run the main method to start the program
 
+
 Please add a method for your use case and add your code there
 public void useCaseName(){
 	...

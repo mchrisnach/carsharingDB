@@ -4,13 +4,12 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.Block;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
+import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import createObjects.CarFactory;
-import createObjects.QueryFactory;
-import createObjects.ReviewFactory;
-import createObjects.UserFactory;
+import createObjects.*;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
 import org.neo4j.driver.*;
 //import org.neo4j.driver.v1.*;
@@ -118,14 +117,16 @@ public class Main implements AutoCloseable {
 //            System.out.println("Car Status: " + car.getStatus());
 //            System.out.println("Car ID: " + car.getObjectID());
 
-            System.out.println("Demand: " + main.demandArea(8.3, 49.3, 50000, 2020, 6));
+//            System.out.println("Demand: " + main.demandArea(8.3, 49.3, 50000, 2020, 6));
+//
+//            //main.demandArea(8.3,49.3,50000,2020,6);
+//            ArrayList<Area> areas = main.findHighDemandZone(6, 2020, 50000);
+//            for (Area area : areas) {
+//                System.out.println(area);
+//            }
 
-            //main.demandArea(8.3,49.3,50000,2020,6);
-            ArrayList<Area> areas = main.findHighDemandZone(6, 2020, 50000);
-            for (Area area : areas) {
-                System.out.println(area);
-            }
-
+            System.out.println("Available cars: " + main.availableCars(8.3, 49.3, 5000));
+            System.out.println(main.findMarginalGain());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -169,6 +170,15 @@ public class Main implements AutoCloseable {
                 return "done";
             }
         });
+    }
+
+    public void storeJourney(Journey journey) {
+
+        //Mongo
+        MongoDatabase mongoDatabase = mongoClient.getDatabase("CarSharing");
+        MongoCollection<Document> mongoCollection = mongoDatabase.getCollection("Journey");
+        Document doc1 = journey.toDocument();
+        mongoCollection.insertOne(doc1);
     }
 
     //Method to store a user in MongoDB and Neo4J
@@ -325,6 +335,7 @@ public class Main implements AutoCloseable {
         ArrayList<User> users = new UserFactory(50).getUserList();
         ArrayList<Query> queries = new QueryFactory(70).create();
         ArrayList<Rating> ratings = new ReviewFactory(20).getRatingList();
+        ArrayList<Journey> journeys = new JourneyFactory(100).getJourneyList();
         createSearches(users, queries);
 
         for (User user : users) {
@@ -357,6 +368,10 @@ public class Main implements AutoCloseable {
         for (Car car : cars
         ) {
             System.out.println("UC5 This car has a general rating of: " + getCarRating(car));
+        }
+
+        for (Journey journey: journeys) {
+            storeJourney(journey);
         }
 
     }
@@ -633,4 +648,112 @@ RETURN count(distinct (c)), count(u)
         }
         return profit;
     }
+
+// Devesh Vashishth Use Case -> get available cars
+// Mainlongitude and mainLatitude represend the central point of the radius.
+// DistanceRange is the value of the radius.
+
+// Query is of Neo4j
+/*"Match (c:Car)-[:WAITING_HERE]->(location)\n" +
+        "WHERE c.status ='Available' AND ROUND(DISTANCE(point({ longitude: location.longitude, latitude: location.latitude }), point({ longitude: $mainLongitutde, latitude: $mainLatitude}))) <= $distanceRange\n " +
+        "WITH location, c \n" +
+        "RETURN c.fuelConsumption as fuelConsumption, c.fuelType, c.status, c.type",
+    parameters(
+                            "mainLongitutde" , mainLongitutde,
+                            "mainLatitude" , mainLatitude,
+                            "distanceRange" , distanceRange
+                            ))*/
+    public Integer availableCars(double mainLongitutde, double mainLatitude, int distanceRange) {
+        String key = "availableCars";
+        ArrayList<String> cache = readRedis(key);
+        String greeting;
+
+        if(cache.size() == 0) {
+            Session session = driverNeo4j.session();
+            greeting = session.writeTransaction(new TransactionWork<String>() {
+                @Override
+                public String execute(Transaction tx) {
+                    Result result = tx.run(
+                            "Match (c:Car)-[:WAITING_HERE]->(location)\n" +
+                                    "WHERE c.status ='Available' AND ROUND(DISTANCE(point({ longitude: location.longitude, latitude: location.latitude }), point({ longitude: $mainLongitutde, latitude: $mainLatitude}))) <= $distanceRange\n " +
+                                    "WITH location, c \n" +
+                                    "RETURN c.fuelConsumption as fuelConsumption, c.fuelType, c.status, c.type",
+                            parameters(
+                                    "mainLongitutde" , mainLongitutde,
+                                    "mainLatitude" , mainLatitude,
+                                    "distanceRange" , distanceRange
+                            ));
+                    // String retResult = "";
+                    Integer number = 0;
+                    Record tmp_record = null;
+                    //0:score, 1:long, 2:lat
+
+                    for (Record record : result.list()) {
+                        System.out.println("==============================");
+                        String retResult = record.get(0).toString() + record.get(1).toString() + record.get(2).toString() + record.get(3).toString();
+                        System.out.println(retResult);
+                        System.out.println("==============================");
+
+                        if (tmp_record != null && tmp_record.get(0) == record.get(0) && tmp_record.get(1) == record.get(1) && tmp_record.get(2) == record.get(2) && tmp_record.get(3) == record.get(3)) {
+                            continue;
+                        }
+                        number += 1;
+                        tmp_record = record;
+                        //
+                    }
+
+                    return number.toString();
+                }
+            });
+            writeRedis(key, greeting);
+        } else {
+            //System.out.println("CACHE");
+            greeting = cache.get(0);
+        }
+
+        return Integer.parseInt(greeting);
+    }
+
+    //  Devesh Vashishth Use case -> marginal gain
+    public HashMap<Integer, Integer> findMarginalGain() {
+        MongoDatabase mongoDatabase = mongoClient.getDatabase("CarSharing");
+        MongoCollection<Document> mongoCollection = mongoDatabase.getCollection("Journey");
+
+        Bson lookup = new Document("$lookup",
+                new Document("from", "car")
+                        .append("localField", "carID")
+                        .append("foreignField", "carID")
+                        .append("as", "car_docs"));
+
+        List<Bson> lookupList = new ArrayList<>();
+
+        AggregateIterable<Document> it = mongoCollection.aggregate(lookupList);
+
+        // a map for key=car_id, value=profit
+        HashMap<Integer, Integer> gainMap = new HashMap<>();
+        for (Document row : it) {
+            int carId = row.getInteger("objectID");
+            int timeInHours = row.getInteger("time");
+            int distance = row.getInteger("distance");
+            // left join, first element always present
+            Document carDocument = ((List<Document>)row.get("car_docs")).get(0);
+            int insurancePerMonthCharge = carDocument.getInteger("insurancePerMonthCharges");
+            int maintenanceCharges = carDocument.getInteger("maintenanceCharges");
+            int kmCarRate = carDocument.getInteger("carRatePerKm");
+            int hourCarRate = carDocument.getInteger("carRatePerHour");
+            int gain = ((timeInHours * hourCarRate) + (kmCarRate * distance)) - (insurancePerMonthCharge + maintenanceCharges);
+
+            if (gainMap.containsKey(carId)) {
+                gainMap.put(carId, gainMap.get(carId) + gain);
+            } else {
+                // first time journey
+                gainMap.put(carId, gain);
+            }
+        }
+
+        System.out.println(Collections.singletonList(gainMap));
+
+        return gainMap;
+    }
+
 }
